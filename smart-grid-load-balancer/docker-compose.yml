@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  charge_request_service:
+    build:
+      context: ./charge_request_service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - LOAD_BALANCER_URL=http://load_balancer:8080
+    depends_on:
+      - load_balancer
+    networks:
+      - smart-grid
+    restart: unless-stopped
+
+  load_balancer:
+    build:
+      context: ./load_balancer
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - substation_1
+      - substation_2
+      - substation_3
+    networks:
+      - smart-grid
+    restart: unless-stopped
+
+  substation_1:
+    build:
+      context: ./substation_service
+      dockerfile: Dockerfile
+    environment:
+      - SUBSTATION_ID=substation_1
+      - MAX_CAPACITY=80
+      - CHARGE_PROCESSING_TIME=8
+    expose:
+      - "8001"
+    networks:
+      - smart-grid
+    restart: unless-stopped
+
+  substation_2:
+    build:
+      context: ./substation_service
+      dockerfile: Dockerfile
+    environment:
+      - SUBSTATION_ID=substation_2
+      - MAX_CAPACITY=120
+      - CHARGE_PROCESSING_TIME=10
+    expose:
+      - "8001"
+    networks:
+      - smart-grid
+    restart: unless-stopped
+
+  substation_3:
+    build:
+      context: ./substation_service
+      dockerfile: Dockerfile
+    environment:
+      - SUBSTATION_ID=substation_3
+      - MAX_CAPACITY=100
+      - CHARGE_PROCESSING_TIME=12
+    expose:
+      - "8001"
+    networks:
+      - smart-grid
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - smart-grid
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - smart-grid
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  smart-grid:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:
