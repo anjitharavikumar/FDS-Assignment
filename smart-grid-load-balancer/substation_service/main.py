@@ -10,14 +10,12 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configuration
 SUBSTATION_ID = os.getenv('SUBSTATION_ID', 'substation_unknown')
-MAX_CAPACITY = int(os.getenv('MAX_CAPACITY', '100'))  # Maximum charging capacity
-CHARGE_PROCESSING_TIME = int(os.getenv('CHARGE_PROCESSING_TIME', '10'))  # seconds
+MAX_CAPACITY = int(os.getenv('MAX_CAPACITY', '100'))  
+CHARGE_PROCESSING_TIME = int(os.getenv('CHARGE_PROCESSING_TIME', '10'))  
 
-# Current load tracking
 current_load = 0
-charging_sessions = {}  # Store active charging sessions
+charging_sessions = {} 
 load_lock = threading.Lock()
 
 def simulate_charging_completion():
@@ -62,7 +60,6 @@ def process_charge():
         if not data:
             return jsonify({'error': 'No data provided'}), 400
         
-        # Validate required fields
         required_fields = ['vehicle_id', 'charge_amount', 'priority']
         for field in required_fields:
             if field not in data:
@@ -73,7 +70,6 @@ def process_charge():
         priority = data.get('priority', 'normal')
         
         with load_lock:
-            # Check if we can handle this charge request
             if current_load + charge_amount > MAX_CAPACITY:
                 logger.warning(f"Charge request rejected - would exceed capacity "
                              f"(current: {current_load}, requested: {charge_amount}, max: {MAX_CAPACITY})")
@@ -84,25 +80,21 @@ def process_charge():
                     'available_capacity': MAX_CAPACITY - current_load
                 }), 503
             
-            # Accept the charging request
             session_id = f"{SUBSTATION_ID}_{vehicle_id}_{int(time.time())}"
             
-            # Calculate charging duration based on amount and priority
             base_duration = CHARGE_PROCESSING_TIME
             if priority == 'high':
-                duration = max(base_duration * 0.7, 5)  # 30% faster for high priority
+                duration = max(base_duration * 0.7, 5)  
             elif priority == 'low':
-                duration = base_duration * 1.3  # 30% slower for low priority
+                duration = base_duration * 1.3  
             else:
                 duration = base_duration
             
-            # Add some randomness to simulate real-world variation
-            duration = duration * (0.8 + random.random() * 0.4)  # ±20% variation
+            duration = duration * (0.8 + random.random() * 0.4)  
             
             start_time = datetime.now()
             end_time = start_time + timedelta(seconds=duration)
             
-            # Update load and add session
             current_load += charge_amount
             charging_sessions[session_id] = {
                 'vehicle_id': vehicle_id,
